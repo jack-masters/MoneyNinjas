@@ -85,11 +85,25 @@ async function childCheckLoggedIn(request, response, next) {
 }
 
 async function createNewSocketParentAuthID(parentID) {
+    const db = getDatabase(firebaseapp);
+    const AuthID = makeLowerNumberCode(64);
+    set(ref(db,"/socket/auth/" + AuthID), {
+        ID: parentID,
+        Type: "Parent"
+    });
 
+    return AuthID
 }
 
 async function createNewSocketChildAuthID(childID) {
+    const db = getDatabase(firebaseapp);
+    const AuthID = makeLowerNumberCode(64);
+    set(ref(db,"/socket/auth/" + AuthID), {
+        ID: childID,
+        Type: "Child"
+    });
 
+    return AuthID
 }
 
 
@@ -97,10 +111,18 @@ socketio.on('connection', (socket) => {
     console.log("User Connected To Service.")
     socket.on('disconnect', () => {
         console.log('User Disconnected To Service.');
+        // socket.leave() add later pls :)
     });
 
-    socket.on('addTask', (authID, data) => {
-
+    socket.on('setupRoom', (authID, data) => {
+        const db = getDatabase();
+        const starCountRef = ref(db, "socket/auth/" + authID);
+        onValue(starCountRef, (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                socket.join(data.ID) // use io.to(CHILDID/PARENTID).emit(whatevr idk)
+            }
+        });
     })
 })
 
@@ -146,6 +168,8 @@ app.get("/parent/login", (request, response) =>
 );
 
 app.get("/parent/portal", requiresAuth(), (request, response) => {
+    const authID = createNewSocketParentAuthID(request.oidc.user.sub)
+
     let dict = null;
     const db = getDatabase();
     const starCountRef = ref(db, "data/parent/" + request.oidc.user.sub + "/children");
@@ -158,7 +182,7 @@ app.get("/parent/portal", requiresAuth(), (request, response) => {
         }
     });
 
-    response.send(mainParentHomePage(URL, request.oidc.user, dict));
+    response.send(mainParentHomePage(URL, request.oidc.user, dict, authID));
 });
 
 app.get("/parent/codeCreated", requiresAuth(), (request, response) => {
@@ -194,6 +218,7 @@ app.get("/child/portal", async (request, response) => {
             return response.send("error0");
         }
 
+        const authID = createNewSocketChildAuthID(ChildSessionData)
 
         const ChildParentID = ref(db, "data/child/" + ChildSessionData + "/parentID");
         const parentSnapshot = await get(ChildParentID);
@@ -220,7 +245,7 @@ app.get("/child/portal", async (request, response) => {
 
         return response.send(
             mainChildHomePage(URL, [
-                { tasks: childcheckdata ? childcheckdata : null, user: {username: childrenDatatwo.Name, userID: ChildSessionData, coins: childrenDatatwo.Coins} }
+                { socketAuth: authID, tasks: childcheckdata ? childcheckdata : null, user: {username: childrenDatatwo.Name, userID: ChildSessionData, coins: childrenDatatwo.Coins} }
             ])
         );
     } catch (error) {
