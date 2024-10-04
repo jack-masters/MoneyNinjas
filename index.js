@@ -22,7 +22,7 @@ import express, { json, request, response } from "express";
 import { Server } from 'socket.io';
 import session from "express-session";
 import crypto from "crypto-js";
-import { makeUpperLowerNumberCode, makeUpperNumberCode} from "./functions/CodeFunctions.js";
+import { makeUpperLowerNumberCode, makeUpperNumberCode, makeLowerNumberCode} from "./functions/CodeFunctions.js";
 import { v4 as uuid } from "uuid";
 import { HomeLoginPage } from "./Html/login/HomeLogin.js";
 import { mainParentHomePage } from "./Html/parent/mainHome.js";
@@ -84,10 +84,10 @@ async function childCheckLoggedIn(request, response, next) {
     next();
 }
 
-async function createNewSocketParentAuthID(parentID) {
+function createNewSocketParentAuthID(parentID) {
     const db = getDatabase(firebaseapp);
     const AuthID = makeLowerNumberCode(64);
-    set(ref(db,"/socket/auth/" + AuthID), {
+    set(ref(db,"socket/auth/" + AuthID), {
         ID: parentID,
         Type: "Parent"
     });
@@ -95,10 +95,10 @@ async function createNewSocketParentAuthID(parentID) {
     return AuthID
 }
 
-async function createNewSocketChildAuthID(childID) {
+function createNewSocketChildAuthID(childID) {
     const db = getDatabase(firebaseapp);
     const AuthID = makeLowerNumberCode(64);
-    set(ref(db,"/socket/auth/" + AuthID), {
+    set(ref(db,"socket/auth/" + AuthID), {
         ID: childID,
         Type: "Child"
     });
@@ -111,16 +111,42 @@ socketio.on('connection', (socket) => {
     console.log("User Connected To Service.")
     socket.on('disconnect', () => {
         console.log('User Disconnected To Service.');
-        // socket.leave() add later pls :)
+
     });
 
-    socket.on('setupRoom', (authID, data) => {
+    socket.on('setupRoom', (authID) => {
         const db = getDatabase();
         const starCountRef = ref(db, "socket/auth/" + authID);
         onValue(starCountRef, (snapshot) => {
             const data = snapshot.val();
             if (data) {
                 socket.join(data.ID) // use io.to(CHILDID/PARENTID).emit(whatevr idk)
+                socketio.to(data.ID).emit("popupShow", "Worked Title", "Worked Desc")
+            }
+        });
+    })
+
+    socket.on('parentCreateSignup', (authID, firstname, age) => {
+        const db = getDatabase();
+
+        const starCountRef = ref(db, "socket/auth/" + authID);
+        onValue(starCountRef, (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                const newCode = makeUpperNumberCode(6)
+                const db = getDatabase();
+                set(ref(db, "login/child/codes/" + newCode), {
+                    Name: firstname,
+                    Age: Number(age),
+                    LoginCode: false,
+                    ParentID: data.ID
+                });
+                
+                socketio.to(data.ID).emit("popupShow", "Signup Code Created!", `
+                    Code: ${newCode}
+                    Name: ${request.body.firstname}
+                    Age: ${request.body.age}
+                `)
             }
         });
     })
@@ -170,19 +196,16 @@ app.get("/parent/login", (request, response) =>
 app.get("/parent/portal", requiresAuth(), (request, response) => {
     const authID = createNewSocketParentAuthID(request.oidc.user.sub)
 
-    let dict = null;
     const db = getDatabase();
     const starCountRef = ref(db, "data/parent/" + request.oidc.user.sub + "/children");
     onValue(starCountRef, (snapshot) => {
         const data = snapshot.val();
         if (data) {
-            dict = data;
+            response.send(mainParentHomePage(URL, [{authID: authID, user: request.oidc.user, childrenData: data}]));
         } else {
-            dict = null;
+            response.send(mainParentHomePage(URL, [{authID: authID, user: request.oidc.user, childrenData: null}]));
         }
     });
-
-    response.send(mainParentHomePage(URL, request.oidc.user, dict, authID));
 });
 
 app.get("/parent/codeCreated", requiresAuth(), (request, response) => {
