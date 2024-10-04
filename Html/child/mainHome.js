@@ -62,7 +62,10 @@ export function mainChildHomePage(url, settings) {
               background-color: #d32f2f;
           }
       </style>
-      
+      <script src="/socket.io/socket.io.js"></script>
+        <script>
+            const socket = io();
+        </script>
    </head>
    <body>
         <div id="popup-overlay" class="popup-overlay">

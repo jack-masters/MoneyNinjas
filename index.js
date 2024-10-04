@@ -19,6 +19,7 @@ const config = {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 import express, { json, request, response } from "express";
+import { Server } from 'socket.io';
 import session from "express-session";
 import crypto from "crypto-js";
 import { makeUpperLowerNumberCode, makeUpperNumberCode} from "./functions/CodeFunctions.js";
@@ -35,7 +36,14 @@ import cookieParser from "cookie-parser";
 import pkg from "express-openid-connect";
 const { auth, requiresAuth } = pkg;
 
+const httpsoptions = {
+    key: fs.readFileSync("HttpCert/server.key"),
+    cert: fs.readFileSync("HttpCert/server.cert"),
+};
+
 const app = express();
+const server = https.createServer(httpsoptions, app)
+const socketio = new Server(server)
 
 app.use("/public", express.static("./public"));
 app.use(express.urlencoded({ extended: true }));
@@ -75,6 +83,26 @@ async function childCheckLoggedIn(request, response, next) {
 
     next();
 }
+
+async function createNewSocketParentAuthID(parentID) {
+
+}
+
+async function createNewSocketChildAuthID(childID) {
+
+}
+
+
+socketio.on('connection', (socket) => {
+    console.log("User Connected To Service.")
+    socket.on('disconnect', () => {
+        console.log('User Disconnected To Service.');
+    });
+
+    socket.on('addTask', (authID, data) => {
+
+    })
+})
 
 app.get("/", (request, response) => {
     if (request.oidc.isAuthenticated()) {
@@ -157,7 +185,6 @@ app.get("/child/portal", async (request, response) => {
     try {
         const db = getDatabase();
 
-        // Fetch Child Session Data
         const sessionToken = request.cookies["child_session_token"];
         const getChildSession = ref(db, "sessions/" + sessionToken + "/userID");
         const sessionSnapshot = await get(getChildSession);
@@ -167,7 +194,7 @@ app.get("/child/portal", async (request, response) => {
             return response.send("error0");
         }
 
-        // Fetch Parent ID linked to the Child Session
+
         const ChildParentID = ref(db, "data/child/" + ChildSessionData + "/parentID");
         const parentSnapshot = await get(ChildParentID);
         const ChildParentDataone = parentSnapshot.val();
@@ -176,7 +203,7 @@ app.get("/child/portal", async (request, response) => {
             return response.send("error1");
         }
 
-        // Fetch Children Data
+
         const childrenData = ref(db, "data/parent/" + ChildParentDataone + "/children/" + ChildSessionData);
         const childrenSnapshot = await get(childrenData);
         const childrenDatatwo = childrenSnapshot.val();
@@ -185,19 +212,18 @@ app.get("/child/portal", async (request, response) => {
             return response.send("error2");
         }
 
-        // Fetch Tasks for the specific child
+
         const childTasks = ref(db, "data/parent/" + ChildParentDataone + "/children/" + ChildSessionData + "/childdata/tasks");
         const tasksSnapshot = await get(childTasks);
         const childcheckdata = tasksSnapshot.val();
 
-        // Send response with the tasks and child's name
+
         return response.send(
             mainChildHomePage(URL, [
                 { tasks: childcheckdata ? childcheckdata : null, user: {username: childrenDatatwo.Name, userID: ChildSessionData, coins: childrenDatatwo.Coins} }
             ])
         );
     } catch (error) {
-        // Handle any unexpected errors
         console.error("Error occurred while fetching child portal data:", error);
         return response.status(500).send("An error occurred while loading the portal.");
     }
@@ -439,6 +465,6 @@ const options = {
     cert: fs.readFileSync("HttpCert/server.cert"),
 };
 
-https.createServer(options, app).listen(port, function (req, res) {
+server.listen(port, function (req, res) {
     console.log(`Server started at port ${port}`);
 });
