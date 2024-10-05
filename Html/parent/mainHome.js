@@ -1,4 +1,4 @@
-export function mainParentHomePage(url, settings) {
+export function mainParentHomePage(url, authID) {
   
     return `
 <!DOCTYPE html>
@@ -63,14 +63,6 @@ export function mainParentHomePage(url, settings) {
           }
       </style>
       <script src="/socket.io/socket.io.js"></script>
-        <script>
-            const socket = io();
-
-            const settings = ${JSON.stringify(settings)}
-            socket.on("connect", () => {
-                socket.emit("setupRoom", settings[0].authID)
-            })
-        </script>
    </head>
    <body>
       <div id="popup-overlay" class="popup-overlay">
@@ -83,26 +75,12 @@ export function mainParentHomePage(url, settings) {
 
       <div class="login">
          <h1>Create Signup</h1>
-         <form action="${url}/parent/create/child/signup" method="post">
-            <input type="text" name="firstname" placeholder="firstname" id="firstname" maxlength="12" minlength="1" required>
-            <input type="text" name="age" placeholder="age" id="age" maxlength="2" minlength="1" required>
-            <input type="submit" value="Login">
+         <form name="signupForm" id="signupForm">
+            <input type="text" name="firstname" placeholder="firstname" maxlength="12" minlength="1" required>
+            <input type="text" name="age" placeholder="age" maxlength="2" minlength="1" required>
+            <input type="submit" value="Login" onClick="SignupCreate();">
          </form>
       </div>
-      <br>
-      <br>
-      <br>
-      <br>
-      <br>
-      <br>
-      <div class="login">
-         <h1>Login</h1>
-         <form action="${url}/parent/create/child/login" method="post">
-            <input type="text" name="childid" placeholder="ChildID" id="childid" minlength="10" required>
-            <input type="submit" value="Login">
-         </form>
-      </div>
-      <br>
       <br>
       <br>
       <br>
@@ -115,39 +93,8 @@ export function mainParentHomePage(url, settings) {
       <br>
       <br>
    </body>
-   <script>
-    socket.on('popupShow', (title, description) => {
-        document.getElementById('popup-title').innerText = title;
-        document.getElementById('popup-description').innerText = description;
-        document.getElementById('popup-overlay').style.display = 'flex';  
-    })
-
-    function closePopup() {
-        document.getElementById('popup-overlay').style.display = 'none';
-    }
-   </script>
-   <script>
-      var childrenData = ${JSON.stringify(settings)}
-      var childrenDivEle = document.getElementById("children")
-
-      if (childrenData[0] == null) {
-        let htmlcode = "<div style='background-color: #fff;'><p>NO KIDS TO SHOW</p></div><br>";
-
-        childrenDivEle.insertAdjacentHTML("beforeend", htmlcode);
-      } else {
-        let loginURL = ""
-
-        for (const [key, value] of Object.entries(childrenData[0].childrenData)) {
-          loginURL = "${url}/parent/create/child/login?childid=" + key;
-          newtaskURL = "${url}/parent/create/child/task?childid=" + key;
-        }
-        
-        for (const [key, value] of Object.entries(childrenData[0].childrenData)) {
-          let htmlcode = " <div class='login'><h2>Name: " + value.Name +"</h2><h3>Age: " + value.Age +"</h3><h3>Coins: " + value.Coins +"</h3><h2>Create New Task</h2><form action="+ newtaskURL +" method='post'><input type='text' name='taskname' placeholder='Task Name' id='taskname' minlength='2' required><br><input type='number' name='coinsamn' placeholder='Ammount Of Coins To Reward' id='coinsamn' required><h3>Approved By Parent: </h3></h2><input type='checkbox' name='parentapprove' id='parentapprove'><br><input type='submit' value='Create Task' /></form><br><form action="+ loginURL +" method='post'><input type='submit' value='Create Login' /></div> <br>";
-
-          childrenDivEle.insertAdjacentHTML("beforeend", htmlcode);
-        }
-      }
+   <script src="${url}/public/parent/main.js">
+   changeSettingsAuth("${authID}")
    </script>
 </html>
     `;

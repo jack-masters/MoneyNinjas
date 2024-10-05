@@ -121,7 +121,14 @@ socketio.on('connection', (socket) => {
             const data = snapshot.val();
             if (data) {
                 socket.join(data.ID) // use io.to(CHILDID/PARENTID).emit(whatevr idk)
-                socketio.to(data.ID).emit("popupShow", "Worked Title", "Worked Desc")
+                const db = getDatabase();
+                const starCountRef = ref(db, "data/parent/" + data.ID + "/children");
+                onValue(starCountRef, (snapshot) => {
+                    const data = snapshot.val();
+                    if (data) {
+                        io.to(data.ID).emit("newChildDataDict", data)
+                    }
+                });
             }
         });
     })
@@ -144,8 +151,8 @@ socketio.on('connection', (socket) => {
                 
                 socketio.to(data.ID).emit("popupShow", "Signup Code Created!", `
                     Code: ${newCode}
-                    Name: ${request.body.firstname}
-                    Age: ${request.body.age}
+                    Name: ${firstname}
+                    Age: ${age}
                 `)
             }
         });
@@ -183,6 +190,7 @@ app.get("/login", (request, response) => {
     response.send(HomeLoginPage(URL));
 });
 
+
 app.get("/parent/login", (request, response) =>
     response.oidc.login({
         returnTo: "/parent/portal",
@@ -201,9 +209,9 @@ app.get("/parent/portal", requiresAuth(), (request, response) => {
     onValue(starCountRef, (snapshot) => {
         const data = snapshot.val();
         if (data) {
-            response.send(mainParentHomePage(URL, [{authID: authID, user: request.oidc.user, childrenData: data}]));
+            response.send(mainParentHomePage(URL, authID));
         } else {
-            response.send(mainParentHomePage(URL, [{authID: authID, user: request.oidc.user, childrenData: null}]));
+            response.send(mainParentHomePage(URL, authID));
         }
     });
 });
