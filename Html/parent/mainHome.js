@@ -10,9 +10,6 @@ export function mainParentHomePage(url, authID) {
       <script src="https://www.gstatic.com/firebasejs/ui/6.0.1/firebase-ui-auth.js"></script>
       <link type="text/css" rel="stylesheet" href="https://www.gstatic.com/firebasejs/ui/6.0.1/firebase-ui-auth.css" />
       <link type="text/css" rel="stylesheet" href="${url}/public/login.css" />]
-      <script src="${url}/public/parent/main.js">
-        changeSettingsAuth("${authID}")
-      </script>
       <style>
           /* Style for the popup background overlay */
           .popup-overlay {
@@ -65,7 +62,6 @@ export function mainParentHomePage(url, authID) {
               background-color: #d32f2f;
           }
       </style>
-      <script src="/socket.io/socket.io.js"></script>
    </head>
    <body>
       <div id="popup-overlay" class="popup-overlay">
@@ -96,6 +92,10 @@ export function mainParentHomePage(url, authID) {
       <br>
       <br>
    </body>
+
+   <script src="${url}/public/parent/main.js">
+        changeSettingsAuth("${authID}")
+    </script>
 </html>
     `;
   
