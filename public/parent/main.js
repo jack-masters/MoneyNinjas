@@ -1,4 +1,4 @@
-const { io } = require("socket.io-client");
+import { io } from "https://cdn.socket.io/4.8.0/socket.io.esm.min.js";
 const socket = io();
 const settings = null;
 

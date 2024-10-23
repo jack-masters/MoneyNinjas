@@ -93,7 +93,7 @@ export function mainParentHomePage(url, authID) {
       <br>
    </body>
 
-   <script src="${url}/public/parent/main.js">
+   <script type="module" src="${url}/public/parent/main.js">
         changeSettingsAuth("${authID}")
     </script>
 </html>
