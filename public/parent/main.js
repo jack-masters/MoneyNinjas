@@ -1,7 +1,8 @@
+import { io } from "https://cdn.socket.io/4.8.0/socket.io.esm.min.js";
 const socket = io();
 const settings = null;
 
-export function changeSettingsAuth(authID) {
+function changeSettingsAuth(authID) {
     settings = [{authID: authID}];
 }
 
@@ -26,21 +27,21 @@ document.addEventListener('DOMContentLoaded', (event) => {
         });
     });
 
-export function setupCreateTask(childID) {
+function setupCreateTask(childID) {
     document.getElementById(childID + "-task").addEventListener("submit", function(e) {
         e.preventDefault()
         alert(childID)
     });
 }
 
-export function setupCreateLogin(childID) {
+function setupCreateLogin(childID) {
     document.getElementById(childID + "-login").addEventListener("submit", function(e) {
         e.preventDefault()
         alert(childID)
     });
 }
 
-export function closePopup() {
+function closePopup() {
     document.getElementById('popup-overlay').style.display = 'none';
 }
 
