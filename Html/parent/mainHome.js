@@ -9,7 +9,7 @@ export function mainParentHomePage(url, authID) {
       <title>Login</title>
       <script src="https://www.gstatic.com/firebasejs/ui/6.0.1/firebase-ui-auth.js"></script>
       <link type="text/css" rel="stylesheet" href="https://www.gstatic.com/firebasejs/ui/6.0.1/firebase-ui-auth.css" />
-      <link type="text/css" rel="stylesheet" href="${url}/public/login.css" />]
+      <link type="text/css" rel="stylesheet" href="${url}/public/login.css" />
       <style>
           /* Style for the popup background overlay */
           .popup-overlay {
@@ -93,8 +93,69 @@ export function mainParentHomePage(url, authID) {
       <br>
    </body>
 
-   <script type="module" src="${url}/public/parent/main.js">
-        changeSettingsAuth("${authID}")
+   <script type="module">
+        import { io } from "https://cdn.socket.io/4.8.0/socket.io.esm.min.js";
+        const socket = io();
+        var settings = [{authID: "${authID}", childrenData: null}];
+
+        socket.on("connect", () => {
+            socket.emit("setupParentRoom", settings[0].authID)
+        })
+
+        socket.on("newChildDataDict", (dict) => {
+            console.log(JSON.stringify(dict));
+            settings[0].childrenData = JSON.stringify(dict);
+            console.log(JSON.stringify(settings))
+            UpdateChildren();
+        })
+
+        socket.on('popupShow', (title, description) => {
+            document.getElementById('popup-title').innerText = title;
+            document.getElementById('popup-description').innerText = description;
+            document.getElementById('popup-overlay').style.display = 'flex';  
+        })
+
+        document.addEventListener('DOMContentLoaded', (event) => {
+            document.getElementById("signupForm").addEventListener("submit", function(e) {
+                e.preventDefault()
+                socket.emit("parentCreateSignup", settings[0].authID, document.getElementById("signupForm").elements["firstname"].value, document.getElementById("signupForm").elements["age"].value)
+            });
+        });
+
+        function setupCreateTask(childID) {
+            document.getElementById(childID + "-task").addEventListener("submit", function(e) {
+                e.preventDefault()
+                alert(childID)
+            });
+        }
+
+        function setupCreateLogin(childID) {
+            document.getElementById(childID + "-login").addEventListener("submit", function(e) {
+                e.preventDefault()
+                alert(childID)
+            });
+        }
+
+        function closePopup() {
+            document.getElementById('popup-overlay').style.display = 'none';
+        }
+
+
+        function UpdateChildren() {
+            var childrenDivEle = document.getElementById("children")
+            if (settings[0].childrenData == null) {
+                let htmlcode = "<div style='background-color: #fff;'><p>NO KIDS TO SHOW</p></div><br>";
+
+                childrenDivEle.insertAdjacentHTML("beforeend", htmlcode);
+            } else { 
+                for (const [key, value] of Object.entries(settings[0].childrenData)) {
+                    let htmlcode = "<div class='login'><h2>Name: " + value.Name +"</h2><h3>Age: " + value.Age +"</h3><h3>Coins: " + value.Coins +"</h3><h2>Create New Task</h2><form id='" + key +"-task'><input type='text' name='taskname' placeholder='Task Name' minlength='2' required><br><input type='number' name='coinsamn' placeholder='Ammount Of Coins To Reward' required><h3>Approved By Parent: </h3></h2><input type='checkbox' name='parentapprove'><br><input type='submit' value='Create Task'/></form><br><form id='" + key +"-login'><input type='submit' value='Create Login'/></div> <br>";
+                    childrenDivEle.insertAdjacentHTML("beforeend", htmlcode);
+                    setupCreateTask(key)
+                    setupCreateLogin(key)
+                }
+            }
+        }
     </script>
 </html>
     `;

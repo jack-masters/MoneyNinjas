@@ -114,19 +114,21 @@ socketio.on('connection', (socket) => {
 
     });
 
-    socket.on('setupRoom', (authID) => {
+    socket.on('setupParentRoom', (authID) => {
         const db = getDatabase();
-        const starCountRef = ref(db, "socket/auth/" + authID);
-        onValue(starCountRef, (snapshot) => {
-            const data = snapshot.val();
-            if (data) {
-                socket.join(data.ID) // use io.to(CHILDID/PARENTID).emit(whatevr idk)
+        const IDData = ref(db, "socket/auth/" + authID);
+        onValue(IDData, (snapshot) => {
+            const SnapIDdata = snapshot.val();
+            if (SnapIDdata) {
+                console.log(SnapIDdata.ID)
+                socket.join(SnapIDdata.ID) // use io.to(CHILDID/PARENTID).emit(whatevr idk)
                 const db = getDatabase();
-                const starCountRef = ref(db, "data/parent/" + data.ID + "/children");
-                onValue(starCountRef, (snapshot) => {
-                    const data = snapshot.val();
-                    if (data) {
-                        io.to(data.ID).emit("newChildDataDict", data)
+                const childrenData = ref(db, "data/parent/" + SnapIDdata.ID + "/children");
+                onValue(childrenData, (snapshot) => {
+                    const childData = snapshot.val();
+                    if (childData) {
+                        console.log(childData)
+                        socketio.to(SnapIDdata.ID).emit("newChildDataDict", childData)
                     }
                 });
             }

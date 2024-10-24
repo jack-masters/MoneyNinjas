@@ -1,9 +1,9 @@
 import { io } from "https://cdn.socket.io/4.8.0/socket.io.esm.min.js";
 const socket = io();
-const settings = null;
+const settings = [];
 
-function changeSettingsAuth(authID) {
-    settings = [{authID: authID}];
+export function changeSettingsAuth(authID) {
+    settings.push({authID: authID})
 }
 
 socket.on("connect", () => {
