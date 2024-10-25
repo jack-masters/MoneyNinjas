@@ -61,6 +61,26 @@ export function mainChildHomePage(url, AuthID) {
           .popup-close:hover {
               background-color: #d32f2f;
           }
+
+          .task-completed-btn {
+              background-color: #65cc31;
+              color: white;
+              border: none;
+              padding: 10px 20px;
+              border-radius: 5px;
+              cursor: pointer;
+              font-size: 14px;
+          }
+
+          .task-notcompleted-btn {
+              background-color: #f44336;
+              color: white;
+              border: none;
+              padding: 10px 20px;
+              border-radius: 5px;
+              cursor: pointer;
+              font-size: 14px;
+          }
       </style>
    </head>
    <body>
@@ -90,6 +110,7 @@ export function mainChildHomePage(url, AuthID) {
         })
 
         socket.on("newChildDataDict", (dict) => {
+            console.log(dict);
             settings[0].childrenData = dict
             UpdateData();
         })
@@ -104,11 +125,23 @@ export function mainChildHomePage(url, AuthID) {
             document.getElementById('popup-overlay').style.display = 'none';
         }
 
+        function checkCompletedSend(taskID) {
+            if (document.getElementById(taskID + '-task-id-completed').innerHTML == "Set This Task To Completed") {
+                document.getElementById(taskID + '-task-id-completed').setAttribute("class", "task-notcompleted-btn");
+                document.getElementById(taskID + '-task-id-completed').innerHTML = "Set This Task To Not Completed"
+                socket.emit("changeChildTaskCompleted", settings[0].authID, taskID, true)
+            } else if (document.getElementById(taskID + '-task-id-completed').innerHTML == "Set This Task To Not Completed") {
+                document.getElementById(taskID + '-task-id-completed').setAttribute("class", "task-completed-btn");
+                document.getElementById(taskID + '-task-id-completed').innerHTML = "Set This Task To Completed"
+                socket.emit("changeChildTaskCompleted", settings[0].authID, taskID, false)
+            }
+        }
+
         function UpdateData() {
             document.getElementById("welcomemsg").innerHTML = "Welcome, " + settings[0].childrenData.Name
             document.getElementById("coinsamt").innerHTML = settings[0].childrenData.Coins
             var tasksDivEle = document.getElementById("tasks")
-            if (settings[0].childrenData.childdata.tasks == null) {
+            if (!settings[0].childrenData?.childdata?.tasks) {
                 $('#tasks').children().remove();
                 let htmlcode = "<div style='background-color: #fff;'><p>NO TASKS TO SHOW</p></div><br>";
 
@@ -116,9 +149,17 @@ export function mainChildHomePage(url, AuthID) {
             } else {
                 $('#tasks').children().remove();
                 for (const [key, value] of Object.entries(settings[0].childrenData.childdata.tasks)) {
-                    let htmlcode = "<br> <div class='login'><h2>TaskName: " + value.taskname +"</h2><h3>Awarded Coins: " + value.coinsamount +"</h3></div> <h3>Needing Parent Approval: " + value.parentapproval + "</h3><br>";
-
+                    let htmlcode = "<br> <div class='login'><h2>TaskName: " + value.taskname +"</h2><h3>Awarded Coins: " + value.coinsamount +"</h3></div> <button class='task-completed-btn' id='" + key + "-task-id-completed'>Set This Task To Completed</button> <br>";
+                    
                     tasksDivEle.insertAdjacentHTML("beforeend", htmlcode);
+                    document.getElementById(key + '-task-id-completed').setAttribute("onclick", "checkCompletedSend('" + key + "')");
+                    if (settings[0].childrenData.childdata.tasks[key].childapproved == false) {
+                        document.getElementById(key + '-task-id-completed').setAttribute("class", "task-completed-btn");
+                        document.getElementById(key + '-task-id-completed').innerHTML = "Set This Task To Completed"
+                    } else {
+                        document.getElementById(key + '-task-id-completed').setAttribute("class", "task-notcompleted-btn");
+                        document.getElementById(key + '-task-id-completed').innerHTML = "Set This Task To Not Completed"
+                    }
                 }
             }
         }

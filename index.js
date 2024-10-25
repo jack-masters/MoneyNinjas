@@ -4,12 +4,12 @@ const URL = "https://money-ninjas.jack-masters.co.uk";
 const config = {
     authRequired: false,
 
-    
+
     auth0Logout: true,
     secret: "Xiqwuehr725y9u32rjiof239r-238rjcoj_EiSHZ5M5q9ueJdrKKYUt23845jifj20r0efkl2GVOjH6xdfcESASDJjdisofjksdfo3o2fbsjh23189hf893I",
     baseURL: URL,
     clientID: "cXn9dnYcFgOL274PSl0vajMnVTdYe8wW",
-    issuerBaseURL: "https://dev-a76hg03tiporhjoo.us.auth0.com",
+    issuerBaseURL: "https://login.money-ninjas.jack-masters.co.uk",
     attemptSilentLogin: false,
     routes: {
         login: false,
@@ -22,7 +22,7 @@ import express, { json, request, response } from "express";
 import { Server } from 'socket.io';
 import session from "express-session";
 import crypto from "crypto-js";
-import { makeUpperLowerNumberCode, makeUpperNumberCode, makeLowerNumberCode} from "./functions/CodeFunctions.js";
+import { makeUpperLowerNumberCode, makeUpperNumberCode, makeLowerNumberCode } from "./functions/CodeFunctions.js";
 import { v4 as uuid } from "uuid";
 import { HomeLoginPage } from "./Html/login/HomeLogin.js";
 import { mainParentHomePage } from "./Html/parent/mainHome.js";
@@ -31,7 +31,7 @@ import { ChildLoginPage } from "./Html/login/ChildLogin.js";
 import { initializeApp } from "firebase/app";
 import * as fs from 'fs';
 import * as https from 'https';
-import {getDatabase,ref,onValue,set,get,child,remove} from "firebase/database";
+import { getDatabase, ref, onValue, set, get, child, remove, update } from "firebase/database";
 import cookieParser from "cookie-parser";
 import pkg from "express-openid-connect";
 const { auth, requiresAuth } = pkg;
@@ -46,6 +46,7 @@ const server = https.createServer(httpsoptions, app)
 const socketio = new Server(server)
 
 app.use("/public", express.static("./public"));
+//app.use("/favicon.ico", express.static("./public/money-ninjas-logo.ico"));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(auth(config));
@@ -87,7 +88,7 @@ async function childCheckLoggedIn(request, response, next) {
 function createNewSocketParentAuthID(parentID) {
     const db = getDatabase(firebaseapp);
     const AuthID = makeLowerNumberCode(64);
-    set(ref(db,"socket/auth/" + AuthID), {
+    set(ref(db, "socket/auth/" + AuthID), {
         ID: parentID,
         Type: "Parent"
     });
@@ -98,7 +99,7 @@ function createNewSocketParentAuthID(parentID) {
 function createNewSocketChildAuthID(childID, parentID) {
     const db = getDatabase(firebaseapp);
     const AuthID = makeLowerNumberCode(64);
-    set(ref(db,"socket/auth/" + AuthID), {
+    set(ref(db, "socket/auth/" + AuthID), {
         ID: childID,
         ParentID: parentID,
         Type: "Child"
@@ -169,7 +170,7 @@ socketio.on('connection', (socket) => {
                     LoginCode: false,
                     ParentID: data.ID
                 });
-                
+
                 socketio.to(data.ID).emit("popupShow", "Signup Code Created!", `
                     Code: ${newCode}
                     Name: ${firstname}
@@ -188,37 +189,37 @@ socketio.on('connection', (socket) => {
                 const dbRef = ref(getDatabase(firebaseapp));
                 const parentID = data.ID;
                 get(child(dbRef, "data/parent/" + data.ID + "/children/" + childID))
-                .then((snapshot) => {
-                    if (snapshot.exists()) {
-                        const data = snapshot.val();
-                        const db = getDatabase(firebaseapp);
-                        if (data) {
-                            const newCode = makeUpperNumberCode(8)
+                    .then((snapshot) => {
+                        if (snapshot.exists()) {
+                            const data = snapshot.val();
+                            const db = getDatabase(firebaseapp);
+                            if (data) {
+                                const newCode = makeUpperNumberCode(8)
 
-                            set(ref(db, "login/child/codes/" + newCode), {
-                                LoginCode: true,
-                                ChildID: childID
-                            });
+                                set(ref(db, "login/child/codes/" + newCode), {
+                                    LoginCode: true,
+                                    ChildID: childID
+                                });
 
-                            socketio.to(parentID).emit("popupShow", "Login Code Created!", `
+                                socketio.to(parentID).emit("popupShow", "Login Code Created!", `
                                 Name: ${data.Name}
                                 Code: ${newCode}
                             `)
+                            } else {
+                                response.status(404)
+                            }
                         } else {
-                            response.status(404)
+                            response.send("idk random eroor");
                         }
-                    } else {
-                        response.send("idk random eroor");
-                    }
-                })
-                .catch((error) => {
-                    console.error(error);
-                });
+                    })
+                    .catch((error) => {
+                        console.error(error);
+                    });
             }
         });
     })
 
-    socket.on('parentCreateTask', (authID, childID, taskname, coinsamn, parentapprove) => {
+    socket.on('parentCreateTask', (authID, childID, taskname, coinsamn) => {
         const db = getDatabase();
 
         const parentDataRef = ref(db, "socket/auth/" + authID);
@@ -227,24 +228,36 @@ socketio.on('connection', (socket) => {
             if (Parentdata) {
                 const dbRef = ref(getDatabase(firebaseapp));
                 get(child(dbRef, "data/parent/" + Parentdata.ID + "/children/" + childID))
-                .then((snapshot) => {
-                    if (snapshot.exists()) {
-                        const data = snapshot.val();
-                        const db = getDatabase(firebaseapp);
-                        if (data) {
-                            const taskID = uuid();
-                            set(ref(db, "data/parent/" + Parentdata.ID + "/children/" + childID + "/childdata/tasks/" + taskID), {
-                                taskname: taskname,
-                                coinsamount: coinsamn,
-                                parentapproval: parentapprove
-                            });
-                                    
-                            socketio.to(Parentdata.ID).emit("popupShow", "Task Created For: " + data.Name, `
+                    .then((snapshot) => {
+                        if (snapshot.exists()) {
+                            const data = snapshot.val();
+                            const db = getDatabase(firebaseapp);
+                            if (data) {
+                                const taskID = uuid();
+                                set(ref(db, "data/parent/" + Parentdata.ID + "/children/" + childID + "/childdata/tasks/" + taskID), {
+                                    taskname: taskname,
+                                    coinsamount: coinsamn,
+                                    childapproved: false,
+                                });
+
+                                socketio.to(Parentdata.ID).emit("popupShow", "Task Created For: " + data.Name, `
                                 Sucsessfully Created Task!
 
                                 Task Name: ${taskname}
                                 Coins Awarded: ${coinsamn}
                             `)
+                            } else {
+                                const db = getDatabase();
+                                const starCountRef = ref(db, "socket/auth/" + authID);
+                                onValue(starCountRef, (snapshot) => {
+                                    const data = snapshot.val();
+                                    if (data) {
+                                        socketio.to(data.ID).emit("popupShow", "Error: 1903", `
+                                        Error While Creating Task.
+                                    `)
+                                    }
+                                });
+                            }
                         } else {
                             const db = getDatabase();
                             const starCountRef = ref(db, "socket/auth/" + authID);
@@ -252,38 +265,178 @@ socketio.on('connection', (socket) => {
                                 const data = snapshot.val();
                                 if (data) {
                                     socketio.to(data.ID).emit("popupShow", "Error: 1903", `
-                                        Error While Creating Task.
-                                    `)
+                                    Error While Creating Task.
+                                `)
                                 }
                             });
                         }
-                    } else {
+                    })
+                    .catch((error) => {
                         const db = getDatabase();
-                            const starCountRef = ref(db, "socket/auth/" + authID);
-                            onValue(starCountRef, (snapshot) => {
+                        const starCountRef = ref(db, "socket/auth/" + authID);
+                        onValue(starCountRef, (snapshot) => {
                             const data = snapshot.val();
                             if (data) {
                                 socketio.to(data.ID).emit("popupShow", "Error: 1903", `
-                                    Error While Creating Task.
-                                `)
-                            }
-                        });
-                    }
-                })
-                .catch((error) => {
-                    const db = getDatabase();
-                    const starCountRef = ref(db, "socket/auth/" + authID);
-                    onValue(starCountRef, (snapshot) => {
-                        const data = snapshot.val();
-                        if (data) {
-                            socketio.to(data.ID).emit("popupShow", "Error: 1903", `
                                 Error While Creating Task.
 
                                 Error Message: ${error}
                             `)
-                        }
+                            }
+                        });
                     });
-                });
+            }
+        });
+    })
+
+    socket.on('parentTaskComplete', (authID, childID, taskID) => {
+        const db = getDatabase();
+        const parentAuthData = ref(db, "socket/auth/" + authID);
+        onValue(parentAuthData, (snapshot) => {
+            const authData = snapshot.val();
+            if (authData) {
+                const parentChildrenData = ref(getDatabase(firebaseapp));
+                get(child(parentChildrenData, "data/parent/" + authData.ID + "/children/" + childID)).then((snapshot) => {
+                    if (snapshot.exists()) {
+                        const Childdata = snapshot.val();
+                        if (Childdata) {
+                            const parentChildTaskData = ref(getDatabase(firebaseapp));
+                            get(child(parentChildTaskData, "data/parent/" + authData.ID + "/children/" + childID + "/childdata/tasks/" + taskID)).then((snapshot) => {
+                                if (snapshot.exists()) {
+                                    const Taskdata = snapshot.val();
+                                    if (Taskdata) {
+                                        const db = getDatabase();
+                                        remove(ref(db, "data/parent/" + authData.ID + "/children/" + childID + "/childdata/tasks/" + taskID));
+
+                                        let coinsAmnt = Number(Childdata.Coins) + Number(Taskdata.coinsamount)
+                                        update(ref(db, "data/parent/" + authData.ID + "/children/" + childID), {
+                                            Coins: coinsAmnt,
+                                        });
+
+                                        socketio.to(authData.ID).emit("popupShow", "Task Completed: " + Taskdata.taskname, `
+                                            Sucsessfully Set Task To Completed!
+
+                                            Given Child ${Taskdata.coinsamount} Coins.
+                                        `)
+
+                                        const dbnew = getDatabase();
+                                        const parentchildData = ref(dbnew, "data/parent/" + authData.ID + "/children");
+                                        onValue(parentchildData, (snapshot) => {
+                                            const parchildData = snapshot.val();
+                                            if (parchildData) {
+                                                socketio.to(authData.ID).emit("newChildDataDict", parchildData)
+                                            }
+                                        });
+                                        const childrenData = ref(dbnew, "data/parent/" + authData.ID + "/children/" + childID);
+                                        onValue(childrenData, (snapshot) => {
+                                            const childData = snapshot.val();
+                                            if (childData) {
+                                                socketio.to(childID).emit("newChildDataDict", childData)
+                                            }
+                                        });
+                                    }
+                                }
+                            })
+                        }
+                    }
+                })
+            }
+        });
+    })
+
+    socket.on('parentTaskDelete', (authID, childID, taskID) => {
+        const db = getDatabase();
+        const parentAuthData = ref(db, "socket/auth/" + authID);
+        onValue(parentAuthData, (snapshot) => {
+            const authData = snapshot.val();
+            if (authData) {
+                const parentChildrenData = ref(getDatabase(firebaseapp));
+                get(child(parentChildrenData, "data/parent/" + authData.ID + "/children/" + childID)).then((snapshot) => {
+                    if (snapshot.exists()) {
+                        const Childdata = snapshot.val();
+                        if (Childdata) {
+                            const parentChildTaskData = ref(getDatabase(firebaseapp));
+                            get(child(parentChildTaskData, "data/parent/" + authData.ID + "/children/" + childID + "/childdata/tasks/" + taskID)).then((snapshot) => {
+                                if (snapshot.exists()) {
+                                    const Taskdata = snapshot.val();
+                                    if (Taskdata) {
+                                        remove(ref(db, "data/parent/" + authData.ID + "/children/" + childID + "/childdata/tasks/" + taskID));
+
+                                        socketio.to(authData.ID).emit("popupShow", "Task Deleted: " + Taskdata.taskname, `
+                                            Sucsessfully Deleted Task!
+                                        `)
+
+                                        const dbnew = getDatabase();
+                                        const parentchildData = ref(dbnew, "data/parent/" + authData.ID + "/children");
+                                        onValue(parentchildData, (snapshot) => {
+                                            const parchildData = snapshot.val();
+                                            if (parchildData) {
+                                                socketio.to(authData.ID).emit("newChildDataDict", parchildData)
+                                            }
+                                        });
+                                        const childrenData = ref(dbnew, "data/parent/" + authData.ID + "/children/" + childID);
+                                        onValue(childrenData, (snapshot) => {
+                                            const childData = snapshot.val();
+                                            if (childData) {
+                                                socketio.to(childID).emit("newChildDataDict", childData)
+                                            }
+                                        });
+                                    }
+                                }
+                            })
+                        }
+                    }
+                })
+            }
+        });
+    })
+
+    socket.on('changeChildTaskCompleted', (authID, taskID, set) => {
+        const db = getDatabase();
+
+        const starCountRef = ref(db, "socket/auth/" + authID);
+        onValue(starCountRef, (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                const dbRef = ref(getDatabase(firebaseapp));
+                get(child(dbRef, "data/parent/" + data.ParentID + "/children/" + data.ID))
+                    .then((snapshot) => {
+                        if (snapshot.exists()) {
+                            const childdata = snapshot.val();
+                            if (childdata) {
+                                const dbRef = ref(getDatabase(firebaseapp));
+                                get(child(dbRef, "data/parent/" + data.ParentID + "/children/" + data.ID + "/childdata/tasks/" + taskID))
+                                    .then((snapshot) => {
+                                        if (snapshot.exists()) {
+                                            const taskdata = snapshot.val();
+                                            if (taskdata) {
+                                                if (taskdata.childapproved != set) {
+                                                    update(ref(db, "data/parent/" + data.ParentID + "/children/" + data.ID + "/childdata/tasks/" + taskID), {
+                                                        childapproved: set,
+                                                    });
+
+                                                    const dbnew = getDatabase();
+                                                    const parentchildData = ref(dbnew, "data/parent/" + childdata.ParentID + "/children");
+                                                    onValue(parentchildData, (snapshot) => {
+                                                        const parchildData = snapshot.val();
+                                                        if (parchildData) {
+                                                            socketio.to(authData.ID).emit("newChildDataDict", parchildData)
+                                                        }
+                                                    });
+                                                    const childrenData = ref(dbnew, "data/parent/" + childdata.ParentID + "/children/" + childdata.ID);
+                                                    onValue(childrenData, (snapshot) => {
+                                                        const childData = snapshot.val();
+                                                        if (childData) {
+                                                            socketio.to(childID).emit("newChildDataDict", childData)
+                                                        }
+                                                    });
+                                                }
+                                            }
+                                        }
+                                    })
+                            }
+                        }
+                    })
             }
         });
     })
@@ -348,7 +501,7 @@ app.get("/child/portal", async (request, response) => {
         const getChildSession = ref(db, "sessions/" + sessionToken + "/userID");
         const sessionSnapshot = await get(getChildSession);
         const ChildSessionData = sessionSnapshot.val();
-        
+
         if (!ChildSessionData) {
             return response.send(mainChildHomePage(URL));
         }
@@ -384,13 +537,13 @@ app.post("/child/signup", (request, response) => {
                     if (data.Name.toLowerCase() == firstname.toLowerCase() && Number(data.Age) == Number(age)) {
                         const db = getDatabase(firebaseapp);
                         const childUserID = uuid();
-                        set(ref(db,"/data/parent/" + data.ParentID + "/children/" + childUserID), {
+                        set(ref(db, "/data/parent/" + data.ParentID + "/children/" + childUserID), {
                             Name: firstname,
                             Age: age,
                             Coins: 0
                         });
 
-                        set(ref(db,"/data/child/" + childUserID), {
+                        set(ref(db, "/data/child/" + childUserID), {
                             parentID: data.ParentID,
                         });
 
@@ -429,7 +582,7 @@ app.post("/child/auth", (request, response) => {
                     const data = snapshot.val();
                     const db = getDatabase();
                     if (data.LoginCode == true) {
-                        
+
                         const sessionToken = uuid();
                         const expiresAtNum = new Date(Date.now() + 8 * 3600000);
                         set(ref(db, "sessions/" + sessionToken), {

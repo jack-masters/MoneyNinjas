@@ -58,6 +58,26 @@ export function mainParentHomePage(url, authID) {
               font-size: 14px;
           }
 
+          .task-complete-btn {
+              background-color: #65cc31;
+              color: white;
+              border: none;
+              padding: 10px 20px;
+              border-radius: 5px;
+              cursor: pointer;
+              font-size: 14px;
+          }
+
+          .task-del-btn {
+              background-color: #f44336;
+              color: white;
+              border: none;
+              padding: 10px 20px;
+              border-radius: 5px;
+              cursor: pointer;
+              font-size: 14px;
+          }
+
           .popup-close:hover {
               background-color: #d32f2f;
           }
@@ -121,9 +141,9 @@ export function mainParentHomePage(url, authID) {
         });
 
         function setupCreateTask(childID) {
-            document.getElementById(childID + "-task").addEventListener("submit", function(e) {
+            document.getElementById(childID + "-taskcreate").addEventListener("submit", function(e) {
                 e.preventDefault()
-                socket.emit("parentCreateTask", settings[0].authID, childID, document.getElementById(childID + "-task").elements["taskname"].value, document.getElementById(childID + "-task").elements["coinsamn"].value, document.getElementById(childID + "-task").elements["parentapprove"].checked)
+                socket.emit("parentCreateTask", settings[0].authID, childID, document.getElementById(childID + "-taskcreate").elements["taskname"].value, document.getElementById(childID + "-taskcreate").elements["coinsamn"].value)
             });
         }
 
@@ -138,6 +158,13 @@ export function mainParentHomePage(url, authID) {
             document.getElementById('popup-overlay').style.display = 'none';
         }
 
+        function deleteTask(childID, taskID) {
+            socket.emit("parentTaskDelete", settings[0].authID, childID, taskID)
+        }
+
+        function completeTask(childID, taskID) {
+            socket.emit("parentTaskComplete", settings[0].authID, childID, taskID)
+        }
 
         function UpdateChildren() {
             var childrenDivEle = document.getElementById("children")
@@ -149,10 +176,30 @@ export function mainParentHomePage(url, authID) {
             } else { 
                 $('#children').children().remove();
                 for (const [key, value] of Object.entries(settings[0].childrenData)) {
-                    let htmlcode = "<div class='login'><h2>Name: " + value.Name +"</h2><h3>Age: " + value.Age +"</h3><h3>Coins: " + value.Coins +"</h3><h2>Create New Task</h2><form id='" + key +"-task'><input type='text' name='taskname' placeholder='Task Name' minlength='2' required><br><input type='number' name='coinsamn' placeholder='Ammount Of Coins To Reward' required><h3>Approved By Parent: </h3></h2><input type='checkbox' name='parentapprove'><br><input type='submit' value='Create Task'/></form><br><form id='" + key +"-login'><input type='submit' value='Create Login'/></div> <br>";
+                    let htmlcode = "<div class='login'><h2>Name: " + value.Name +"</h2><h3>Age: " + value.Age +"</h3><h3>Coins: " + value.Coins +"</h3><h2>Create New Task</h2><form id='" + key +"-taskcreate'><input type='text' name='taskname' placeholder='Task Name' minlength='2' required><br><input type='number' name='coinsamn' placeholder='Ammount Of Coins To Reward' required><br><input type='submit' value='Create Task'/></form><br><form id='" + key +"-login'><input type='submit' value='Create Login'/></form><br><br><div id='" + key +"-tasks-show'></div></div><br>";
                     childrenDivEle.insertAdjacentHTML("beforeend", htmlcode);
                     setupCreateTask(key)
                     setupCreateLogin(key)
+
+                    let childID = key;
+                    let childValues = value
+
+                    if (!settings[0].childrenData[childID]?.childdata?.tasks) {
+                        let htmlcodeNoTasks = "<div style='background-color: #fff;'><p>NO TASKS TO SHOW</p></div><br>";
+
+                        document.getElementById(childID + "-tasks-show").insertAdjacentHTML("beforeend", htmlcodeNoTasks);
+                    } else {
+                        for (const [key, value] of Object.entries(settings[0].childrenData[childID].childdata.tasks)) {
+                            let ChildApproveText = childValues.Name + " has not set this task to completed."
+                            if (value.childapproved == false || value.childapproved == null) { ChildApproveText = childValues.Name + " has not set this task to completed." } else { ChildApproveText = childValues.Name + " has set this task to completed!" }
+
+                            let htmlCodeTasks = "<div id='" + key +"-task-id-"+ childID + "' style='background-color: #808080;'><h3>Name: "+ value.taskname +"</h3> <h3>Coins: "+ value.coinsamount +"</h3> <h3> " + ChildApproveText +" </h3> <button class='task-complete-btn' id='" + key +"-task-id-"+ childID + "-complete'>Completed</button><button class='task-del-btn' id='" + key +"-task-id-"+ childID + "-delete'>Delete</button></div>"
+                            document.getElementById(childID + "-tasks-show").insertAdjacentHTML("beforeend", htmlCodeTasks);
+
+                            document.getElementById(key + '-task-id-' + childID + '-complete').setAttribute("onclick", "completeTask('" + childID + "', '" + key + "')");
+                            document.getElementById(key + '-task-id-' + childID + '-delete').setAttribute("onclick", "deleteTask('" + childID + "', '" + key + "')"); 
+                        }       
+                    }
                 }
             }
         }
