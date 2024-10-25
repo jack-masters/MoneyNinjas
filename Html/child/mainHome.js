@@ -1,4 +1,4 @@
-export function mainChildHomePage(url, settings) {
+export function mainChildHomePage(url, AuthID) {
   
     return `
 <!DOCTYPE html>
@@ -9,7 +9,7 @@ export function mainChildHomePage(url, settings) {
       <title>Login</title>
       <script src="https://www.gstatic.com/firebasejs/ui/6.0.1/firebase-ui-auth.js"></script>
       <link type="text/css" rel="stylesheet" href="https://www.gstatic.com/firebasejs/ui/6.0.1/firebase-ui-auth.css" />
-      <link type="text/css" rel="stylesheet" href="${url}/public/css/login.css" />
+      <link type="text/css" rel="stylesheet" href="${url}/public/login.css" />
       <style>
           /* Style for the popup background overlay */
           .popup-overlay {
@@ -62,10 +62,6 @@ export function mainChildHomePage(url, settings) {
               background-color: #d32f2f;
           }
       </style>
-      <script src="/socket.io/socket.io.js"></script>
-        <script>
-            const socket = io();
-        </script>
    </head>
    <body>
         <div id="popup-overlay" class="popup-overlay">
@@ -79,42 +75,53 @@ export function mainChildHomePage(url, settings) {
         <h1 id="welcomemsg"></h1>
         <h2 id="coinsamt"></h2>
 
-        <div  id = "tasks">
+        <div  id="tasks">
 
         </div>
    </body>
+   <script src="https://code.jquery.com/jquery-3.6.3.min.js"></script>
+   <script src="/socket.io/socket.io.js"></script>
    <script>
-    var PageSettings = ${JSON.stringify(settings)}
+        const socket = io();
+        var settings = [{authID: "${AuthID}", childrenData: null}];
 
-    if (PageSettings[0].popup.popupShow == true) {
-      document.getElementById('popup-title').innerText = PageSettings[0].popup.popupTitle;
-      document.getElementById('popup-description').innerText = PageSettings[0].popup.popupMessage;
-      document.getElementById('popup-overlay').style.display = 'flex';
-    }
+        socket.on("connect", () => {
+            socket.emit("setupChildRoom", settings[0].authID)
+        })
 
-    function closePopup() {
-        document.getElementById('popup-overlay').style.display = 'none';
-        window.location.href = PageSettings[0].popup.popupReturnURL;
-    }
-   </script>
-   <script>
-      var childrenData = ${JSON.stringify(settings)}
-      var tasksDivEle = document.getElementById("tasks")
+        socket.on("newChildDataDict", (dict) => {
+            settings[0].childrenData = dict
+            UpdateData();
+        })
 
-      if (childrenData[0].tasks == null) {
-        let htmlcode = "<div style='background-color: #fff;'><p>NO TASKS TO SHOW</p></div><br>";
+        socket.on('popupShow', (title, description) => {
+            document.getElementById('popup-title').innerText = title;
+            document.getElementById('popup-description').innerText = description;
+            document.getElementById('popup-overlay').style.display = 'flex';  
+        })
 
-        tasksDivEle.insertAdjacentHTML("beforeend", htmlcode);
-      } else {
-        for (const [key, value] of Object.entries(childrenData[0].tasks)) {
-          let htmlcode = "<br> <div class='login'><h2>TaskName: " + value.taskname +"</h2><h3>Awarded Coins: " + value.coinsamount +"</h3></div> <h3>Needing Parent Approval: " + value.parentapproval + "</h3><br>";
-
-          tasksDivEle.insertAdjacentHTML("beforeend", htmlcode);
+        function closePopup() {
+            document.getElementById('popup-overlay').style.display = 'none';
         }
-      }
 
-      document.getElementById("welcomemsg").innerHTML = "Welcome, " + childrenData[0].user.username
-      document.getElementById("coinsamt").innerHTML = childrenData[0].user.coins
+        function UpdateData() {
+            document.getElementById("welcomemsg").innerHTML = "Welcome, " + settings[0].childrenData.Name
+            document.getElementById("coinsamt").innerHTML = settings[0].childrenData.Coins
+            var tasksDivEle = document.getElementById("tasks")
+            if (settings[0].childrenData.childdata.tasks == null) {
+                $('#tasks').children().remove();
+                let htmlcode = "<div style='background-color: #fff;'><p>NO TASKS TO SHOW</p></div><br>";
+
+                tasksDivEle.insertAdjacentHTML("beforeend", htmlcode);
+            } else {
+                $('#tasks').children().remove();
+                for (const [key, value] of Object.entries(settings[0].childrenData.childdata.tasks)) {
+                    let htmlcode = "<br> <div class='login'><h2>TaskName: " + value.taskname +"</h2><h3>Awarded Coins: " + value.coinsamount +"</h3></div> <h3>Needing Parent Approval: " + value.parentapproval + "</h3><br>";
+
+                    tasksDivEle.insertAdjacentHTML("beforeend", htmlcode);
+                }
+            }
+        }
    </script>
 </html>
     `;

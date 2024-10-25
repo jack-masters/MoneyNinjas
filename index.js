@@ -95,11 +95,12 @@ function createNewSocketParentAuthID(parentID) {
     return AuthID
 }
 
-function createNewSocketChildAuthID(childID) {
+function createNewSocketChildAuthID(childID, parentID) {
     const db = getDatabase(firebaseapp);
     const AuthID = makeLowerNumberCode(64);
     set(ref(db,"socket/auth/" + AuthID), {
         ID: childID,
+        ParentID: parentID,
         Type: "Child"
     });
 
@@ -121,13 +122,31 @@ socketio.on('connection', (socket) => {
             const SnapIDdata = snapshot.val();
             if (SnapIDdata) {
                 console.log(SnapIDdata.ID)
-                socket.join(SnapIDdata.ID) // use io.to(CHILDID/PARENTID).emit(whatevr idk)
+                socket.join(SnapIDdata.ID) // use socketio.to(CHILDID/PARENTID).emit(whatevr idk)
                 const db = getDatabase();
                 const childrenData = ref(db, "data/parent/" + SnapIDdata.ID + "/children");
                 onValue(childrenData, (snapshot) => {
                     const childData = snapshot.val();
                     if (childData) {
-                        console.log(childData)
+                        socketio.to(SnapIDdata.ID).emit("newChildDataDict", childData)
+                    }
+                });
+            }
+        });
+    })
+
+    socket.on('setupChildRoom', (authID) => {
+        const db = getDatabase();
+        const IDData = ref(db, "socket/auth/" + authID);
+        onValue(IDData, (snapshot) => {
+            const SnapIDdata = snapshot.val();
+            if (SnapIDdata) {
+                socket.join(SnapIDdata.ID) // use socketio.to(CHILDID/PARENTID).emit(whatevr idk)
+                const db = getDatabase();
+                const childrenData = ref(db, "data/parent/" + SnapIDdata.ParentID + "/children/" + SnapIDdata.ID);
+                onValue(childrenData, (snapshot) => {
+                    const childData = snapshot.val();
+                    if (childData) {
                         socketio.to(SnapIDdata.ID).emit("newChildDataDict", childData)
                     }
                 });
@@ -156,6 +175,45 @@ socketio.on('connection', (socket) => {
                     Name: ${firstname}
                     Age: ${age}
                 `)
+            }
+        });
+    })
+
+    socket.on('parentCreateLogin', (authID, childID) => {
+        const db = getDatabase();
+        const starCountRef = ref(db, "socket/auth/" + authID);
+        onValue(starCountRef, (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                const dbRef = ref(getDatabase(firebaseapp));
+                const parentID = data.ID;
+                get(child(dbRef, "data/parent/" + data.ID + "/children/" + childID))
+                .then((snapshot) => {
+                    if (snapshot.exists()) {
+                        const data = snapshot.val();
+                        const db = getDatabase(firebaseapp);
+                        if (data) {
+                            const newCode = makeUpperNumberCode(8)
+
+                            set(ref(db, "login/child/codes/" + newCode), {
+                                LoginCode: true,
+                                ChildID: childID
+                            });
+
+                            socketio.to(parentID).emit("popupShow", "Login Code Created!", `
+                                Name: ${data.Name}
+                                Code: ${newCode}
+                            `)
+                        } else {
+                            response.status(404)
+                        }
+                    } else {
+                        response.send("idk random eroor");
+                    }
+                })
+                .catch((error) => {
+                    console.error(error);
+                });
             }
         });
     })
@@ -205,34 +263,8 @@ app.get("/parent/login", (request, response) =>
 
 app.get("/parent/portal", requiresAuth(), (request, response) => {
     const authID = createNewSocketParentAuthID(request.oidc.user.sub)
-
-    const db = getDatabase();
-    const starCountRef = ref(db, "data/parent/" + request.oidc.user.sub + "/children");
-    onValue(starCountRef, (snapshot) => {
-        const data = snapshot.val();
-        if (data) {
-            response.send(mainParentHomePage(URL, authID));
-        } else {
-            response.send(mainParentHomePage(URL, authID));
-        }
-    });
+    response.send(mainParentHomePage(URL, authID));
 });
-
-app.get("/parent/codeCreated", requiresAuth(), (request, response) => {
-    let dict = null;
-    const db = getDatabase();
-    const starCountRef = ref(db, "data/parent/" + request.oidc.user.sub + "/children");
-    onValue(starCountRef, (snapshot) => {
-        const data = snapshot.val();
-        if (data) {
-            dict = data;
-        } else {
-            dict = null;
-        }
-    });
-
-    response.send(mainParentHomePage(URL, request.oidc.user, dict, {popupShow: true, popupTitle: "", popupMessage: "Your code has been created successfully"}));
-})
 
 app.get("/child/login", (request, response) => {
     response.send(ChildLoginPage(URL));
@@ -248,42 +280,23 @@ app.get("/child/portal", async (request, response) => {
         const ChildSessionData = sessionSnapshot.val();
         
         if (!ChildSessionData) {
-            return response.send("error0");
+            return response.send(mainChildHomePage(URL));
         }
-
-        const authID = createNewSocketChildAuthID(ChildSessionData)
 
         const ChildParentID = ref(db, "data/child/" + ChildSessionData + "/parentID");
         const parentSnapshot = await get(ChildParentID);
         const ChildParentDataone = parentSnapshot.val();
 
         if (!ChildParentDataone) {
-            return response.send("error1");
+            return response.send(mainChildHomePage(URL));
         }
 
-
-        const childrenData = ref(db, "data/parent/" + ChildParentDataone + "/children/" + ChildSessionData);
-        const childrenSnapshot = await get(childrenData);
-        const childrenDatatwo = childrenSnapshot.val();
-
-        if (!childrenDatatwo) {
-            return response.send("error2");
-        }
+        const authID = createNewSocketChildAuthID(ChildSessionData, ChildParentDataone)
 
 
-        const childTasks = ref(db, "data/parent/" + ChildParentDataone + "/children/" + ChildSessionData + "/childdata/tasks");
-        const tasksSnapshot = await get(childTasks);
-        const childcheckdata = tasksSnapshot.val();
-
-
-        return response.send(
-            mainChildHomePage(URL, [
-                { socketAuth: authID, tasks: childcheckdata ? childcheckdata : null, user: {username: childrenDatatwo.Name, userID: ChildSessionData, coins: childrenDatatwo.Coins} }
-            ])
-        );
+        return response.send(mainChildHomePage(URL, authID));
     } catch (error) {
-        console.error("Error occurred while fetching child portal data:", error);
-        return response.status(500).send("An error occurred while loading the portal.");
+        return response.redirect("/login")
     }
 });
 
@@ -371,77 +384,6 @@ app.post("/child/auth", (request, response) => {
             });
     }
 });
-
-app.post("/parent/create/child/signup", (request, response) => {
-    const newCode = makeUpperNumberCode(6)
-    
-    const db = getDatabase();
-    set(ref(db, "login/child/codes/" + newCode), {
-        Name: request.body.firstname,
-        Age: Number(request.body.age),
-        LoginCode: false,
-        ParentID: request.oidc.user.sub
-    });
-
-    let dict = null;
-    const starCountRef = ref(db, "data/parent/" + request.oidc.user.sub + "/children");
-    onValue(starCountRef, (snapshot) => {
-        const data = snapshot.val();
-        if (data) {
-            dict = data;
-        } else {
-            dict = null;
-        }
-    });
-
-    response.send(mainParentHomePage(URL, request.oidc.user, dict, [{popupShow: true, popupTitle: "Signup Code Created.", popupMessage: `
-        Code: ${newCode}
-        Name: ${request.body.firstname}
-        Age: ${request.body.age}
-    `, popupReturnURL: URL + "/parent/portal"}]));
-})
-
-app.post("/parent/create/child/login", (request, response) => {
-    let childID = request.query.childid
-    const dbRef = ref(getDatabase(firebaseapp));
-    get(child(dbRef, "data/parent/" + request.oidc.user.sub + "/children/" + childID))
-    .then((snapshot) => {
-        if (snapshot.exists()) {
-            const data = snapshot.val();
-            const db = getDatabase(firebaseapp);
-            if (data) {
-                const newCode = makeUpperNumberCode(8)
-
-                set(ref(db, "login/child/codes/" + newCode), {
-                    LoginCode: true,
-                    ChildID: childID
-                });
-
-                let dict = null;
-                const starCountRef = ref(db, "data/parent/" + request.oidc.user.sub + "/children");
-                onValue(starCountRef, (snapshot) => {
-                    const data = snapshot.val();
-                    if (data) {
-                        dict = data;
-                    } else {
-                        dict = null;
-                    }
-                });
-                
-                response.send(mainParentHomePage(URL, request.oidc.user, dict, [{popupShow: true, popupTitle: data.Name + "'s Login Code Created", popupMessage: `
-                    Code: ${newCode}
-                `, popupReturnURL: URL + "/parent/portal"}]));
-            } else {
-                response.status(404)
-            }
-        } else {
-            response.send("idk random eroor");
-        }
-    })
-    .catch((error) => {
-        console.error(error);
-    });
-})
 
 app.post("/parent/create/child/task", (request, response) => {
     let childID = request.query.childid

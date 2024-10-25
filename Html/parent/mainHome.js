@@ -77,7 +77,7 @@ export function mainParentHomePage(url, authID) {
          <form name="signupForm" id="signupForm">
             <input type="text" name="firstname" placeholder="firstname" maxlength="12" minlength="1" required>
             <input type="text" name="age" placeholder="age" maxlength="2" minlength="1" required>
-            <input type="submit" value="Login" onClick="SignupCreate();">
+            <input type="submit" value="Login">
          </form>
       </div>
       <br>
@@ -92,9 +92,9 @@ export function mainParentHomePage(url, authID) {
       <br>
       <br>
    </body>
-
-   <script type="module">
-        import { io } from "https://cdn.socket.io/4.8.0/socket.io.esm.min.js";
+   <script src="https://code.jquery.com/jquery-3.6.3.min.js"></script>
+   <script src="/socket.io/socket.io.js"></script>
+   <script>
         const socket = io();
         var settings = [{authID: "${authID}", childrenData: null}];
 
@@ -103,9 +103,7 @@ export function mainParentHomePage(url, authID) {
         })
 
         socket.on("newChildDataDict", (dict) => {
-            console.log(JSON.stringify(dict));
-            settings[0].childrenData = JSON.stringify(dict);
-            console.log(JSON.stringify(settings))
+            settings[0].childrenData = dict
             UpdateChildren();
         })
 
@@ -132,7 +130,7 @@ export function mainParentHomePage(url, authID) {
         function setupCreateLogin(childID) {
             document.getElementById(childID + "-login").addEventListener("submit", function(e) {
                 e.preventDefault()
-                alert(childID)
+                socket.emit("parentCreateLogin", settings[0].authID, childID)
             });
         }
 
@@ -144,10 +142,12 @@ export function mainParentHomePage(url, authID) {
         function UpdateChildren() {
             var childrenDivEle = document.getElementById("children")
             if (settings[0].childrenData == null) {
+                $('#children').children().remove();
                 let htmlcode = "<div style='background-color: #fff;'><p>NO KIDS TO SHOW</p></div><br>";
 
                 childrenDivEle.insertAdjacentHTML("beforeend", htmlcode);
             } else { 
+                $('#children').children().remove();
                 for (const [key, value] of Object.entries(settings[0].childrenData)) {
                     let htmlcode = "<div class='login'><h2>Name: " + value.Name +"</h2><h3>Age: " + value.Age +"</h3><h3>Coins: " + value.Coins +"</h3><h2>Create New Task</h2><form id='" + key +"-task'><input type='text' name='taskname' placeholder='Task Name' minlength='2' required><br><input type='number' name='coinsamn' placeholder='Ammount Of Coins To Reward' required><h3>Approved By Parent: </h3></h2><input type='checkbox' name='parentapprove'><br><input type='submit' value='Create Task'/></form><br><form id='" + key +"-login'><input type='submit' value='Create Login'/></div> <br>";
                     childrenDivEle.insertAdjacentHTML("beforeend", htmlcode);
