@@ -123,7 +123,7 @@ export function mainParentHomePage(url, authID) {
         function setupCreateTask(childID) {
             document.getElementById(childID + "-task").addEventListener("submit", function(e) {
                 e.preventDefault()
-                alert(childID)
+                socket.emit("parentCreateTask", settings[0].authID, childID, document.getElementById(childID + "-task").elements["taskname"].value, document.getElementById(childID + "-task").elements["coinsamn"].value, document.getElementById(childID + "-task").elements["parentapprove"].checked)
             });
         }
 

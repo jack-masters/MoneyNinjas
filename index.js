@@ -217,6 +217,76 @@ socketio.on('connection', (socket) => {
             }
         });
     })
+
+    socket.on('parentCreateTask', (authID, childID, taskname, coinsamn, parentapprove) => {
+        const db = getDatabase();
+
+        const parentDataRef = ref(db, "socket/auth/" + authID);
+        onValue(parentDataRef, (snapshot) => {
+            const Parentdata = snapshot.val();
+            if (Parentdata) {
+                const dbRef = ref(getDatabase(firebaseapp));
+                get(child(dbRef, "data/parent/" + Parentdata.ID + "/children/" + childID))
+                .then((snapshot) => {
+                    if (snapshot.exists()) {
+                        const data = snapshot.val();
+                        const db = getDatabase(firebaseapp);
+                        if (data) {
+                            const taskID = uuid();
+                            set(ref(db, "data/parent/" + Parentdata.ID + "/children/" + childID + "/childdata/tasks/" + taskID), {
+                                taskname: taskname,
+                                coinsamount: coinsamn,
+                                parentapproval: parentapprove
+                            });
+                                    
+                            socketio.to(Parentdata.ID).emit("popupShow", "Task Created For: " + data.Name, `
+                                Sucsessfully Created Task!
+
+                                Task Name: ${taskname}
+                                Coins Awarded: ${coinsamn}
+                            `)
+                        } else {
+                            const db = getDatabase();
+                            const starCountRef = ref(db, "socket/auth/" + authID);
+                            onValue(starCountRef, (snapshot) => {
+                                const data = snapshot.val();
+                                if (data) {
+                                    socketio.to(data.ID).emit("popupShow", "Error: 1903", `
+                                        Error While Creating Task.
+                                    `)
+                                }
+                            });
+                        }
+                    } else {
+                        const db = getDatabase();
+                            const starCountRef = ref(db, "socket/auth/" + authID);
+                            onValue(starCountRef, (snapshot) => {
+                            const data = snapshot.val();
+                            if (data) {
+                                socketio.to(data.ID).emit("popupShow", "Error: 1903", `
+                                    Error While Creating Task.
+                                `)
+                            }
+                        });
+                    }
+                })
+                .catch((error) => {
+                    const db = getDatabase();
+                    const starCountRef = ref(db, "socket/auth/" + authID);
+                    onValue(starCountRef, (snapshot) => {
+                        const data = snapshot.val();
+                        if (data) {
+                            socketio.to(data.ID).emit("popupShow", "Error: 1903", `
+                                Error While Creating Task.
+
+                                Error Message: ${error}
+                            `)
+                        }
+                    });
+                });
+            }
+        });
+    })
 })
 
 app.get("/", (request, response) => {
@@ -384,63 +454,6 @@ app.post("/child/auth", (request, response) => {
             });
     }
 });
-
-app.post("/parent/create/child/task", (request, response) => {
-    let childID = request.query.childid
-    let taskname = request.body.taskname
-    let coinsamn = request.body.coinsamn
-    let parentapprove = request.body.parentapprove
-    const dbRef = ref(getDatabase(firebaseapp));
-    get(child(dbRef, "data/parent/" + request.oidc.user.sub + "/children/" + childID))
-    .then((snapshot) => {
-        if (snapshot.exists()) {
-            const data = snapshot.val();
-            const db = getDatabase(firebaseapp);
-            if (data) {
-                if (parentapprove == undefined) { parentapprove = false } else { parentapprove = true };
-                const taskID = uuid();
-                set(ref(db, "data/parent/" + request.oidc.user.sub + "/children/" + childID + "/childdata/tasks/" + taskID), {
-                    taskname: taskname,
-                    coinsamount: coinsamn,
-                    parentapproval: parentapprove
-                });
-        
-                let dict = null;
-                const starCountRef = ref(db, "data/parent/" + request.oidc.user.sub + "/children");
-                onValue(starCountRef, (snapshot) => {
-                    const data = snapshot.val();
-                    if (data) {
-                        dict = data;
-                    } else {
-                        dict = null;
-                    }
-                });
-                        
-                response.send(mainParentHomePage(URL, request.oidc.user, dict, [{popupShow: true, popupTitle: "Task Created For: " + data.Name, popupMessage: `
-                    Sucsessfully Created Task!
-
-                    Task Name: ${taskname}
-                    Coins Awarded: ${coinsamn}
-                `, popupReturnURL: URL + "/parent/portal"}]));
-            } else {
-                response.send(mainParentHomePage(URL, request.oidc.user, null, [{popupShow: true, popupTitle: "Error", popupMessage: `
-                    Error While Creating Task.
-                `, popupReturnURL: URL + "/parent/portal"}]));
-            }
-        } else {
-            response.send(mainParentHomePage(URL, request.oidc.user, null, [{popupShow: true, popupTitle: "Error", popupMessage: `
-                Error While Creating Task.
-            `, popupReturnURL: URL + "/parent/portal"}]));
-        }
-    })
-    .catch((error) => {
-        response.send(mainParentHomePage(URL, request.oidc.user, null, [{popupShow: true, popupTitle: "Error", popupMessage: `
-            Error While Creating Task.
-            Error Message: ${error}
-        `, popupReturnURL: URL + "/parent/portal"}]));
-    });
-})
-
 
 /// LOGOUT
 
