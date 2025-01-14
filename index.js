@@ -6,9 +6,9 @@ const config = {
 
 
     auth0Logout: true,
-    secret: "Xiqwuehr725y9u32rjiof239r-238rjcoj_EiSHZ5M5q9ueJdrKKYUt23845jifj20r0efkl2GVOjH6xdfcESASDJjdisofjksdfo3o2fbsjh23189hf893I",
+    secret: "--REMOVED--",
     baseURL: URL,
-    clientID: "cXn9dnYcFgOL274PSl0vajMnVTdYe8wW",
+    clientID: "--REMOVED--",
     issuerBaseURL: "https://login.money-ninjas.jack-masters.co.uk",
     attemptSilentLogin: false,
     routes: {
@@ -55,7 +55,7 @@ const firebaseConfig = {
     // ...
     // The value of `databaseURL` depends on the location of the database
     databaseURL:
-        "https://moneycounter-64156-default-rtdb.europe-west1.firebasedatabase.app",
+        "--REMOVED--",
 };
 
 const firebaseapp = initializeApp(firebaseConfig);
