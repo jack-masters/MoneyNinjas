@@ -206,10 +206,10 @@ socketio.on('connection', (socket) => {
                                 Code: ${newCode}
                             `)
                             } else {
-                                response.status(404)
+                                response.send("Cant find your child in database. Please check children, service status (https://status.money-ninjas.co.uk)").status(404)
                             }
                         } else {
-                            response.send("idk random eroor");
+                           response.send("Cant find your child in database. Please check children, service status (https://status.money-ninjas.co.uk)").status(404)
                         }
                     })
                     .catch((error) => {
